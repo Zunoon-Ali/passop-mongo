@@ -13,16 +13,14 @@ const PasswordManager = () => {
 
   const getPasswords = async () => {
     let req = await fetch("http://localhost:3000/");
-    let password = await req.json();
+    let passwords = await req.json();
 
-    // MongoDB ObjectId ko string me convert karna zaroori hai
-    const fixed = password.map((p) => ({ ...p, _id: p._id.toString() }));
+    // Convert MongoDB ObjectId objects into strings
+    const fixed = passwords.map((p) => ({ ...p, _id: p._id.toString() }));
 
-    console.log(fixed);
     setPasswordArray(fixed);
   };
 
-  // ✅ Load from localStorage on mount
   useEffect(() => {
     getPasswords();
   }, []);
@@ -49,29 +47,27 @@ const PasswordManager = () => {
     });
 
     const data = await res.json();
-    const newEntry = data.result; // ✅ extract actual password object
 
-    setPasswordArray([...passwordArray, newEntry]);
-    setForm({ site: "", username: "", password: "" }); // reset form
-
-    toast("Password Saved!", {
-      position: "top-center",
-      theme: "dark",
-      transition: Bounce,
-    });
+    if (data.success) {
+      // Re-fetch to get latest list including new record
+      getPasswords();
+      setForm({ site: "", username: "", password: "" });
+      toast("✅ Password Saved!", { position: "top-center", theme: "dark" });
+    } else {
+      toast("❌ Failed to save!", { position: "top-center", theme: "dark" });
+    }
   };
 
   const handleDelete = async (id) => {
     let c = confirm("Do you really want to delete this password from PassOp?");
     if (c) {
-      await fetch(`http://localhost:3000/${id}`, { method: "DELETE" });
-      setPasswordArray(passwordArray.filter((item) => item._id !== id));
-
-      toast("Password Deleted!", {
-        position: "top-center",
-        theme: "dark",
-        transition: Bounce,
+      await fetch("http://localhost:3000/", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _id: id }),
       });
+      setPasswordArray(passwordArray.filter((item) => item._id !== id));
+      toast("🗑️ Password Deleted!", { position: "top-center", theme: "dark" });
     }
   };
 
@@ -328,7 +324,7 @@ const PasswordManager = () => {
                 <tbody>
                   {passwordArray.map((item) => (
                     <tr
-                      key={item.id}
+                      key={item._id}
                       className="border-t border-gray-200 hover:bg-gray-50 text-sm"
                     >
                       {/* Checkbox */}
@@ -389,7 +385,8 @@ const PasswordManager = () => {
                             title={item.password}
                             className="truncate max-w-[120px] block"
                           >
-                            {"*".repeat(item.password.length)}
+                           {"*".repeat(item.password?.length || 0)}
+
                           </span>
                           <lord-icon
                             onClick={() => handleCopy(item.password)}
